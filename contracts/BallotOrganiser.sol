@@ -7,51 +7,35 @@ contract BallotOrganiser {
         bool Value;
     }
     struct Ballot {
-        bytes32 Identifier;
         string Subject;
         bool IsOpen;
         address CreatedBy;
         address ClosedBy;
     }
+    //ballot's subject => ballot
+    mapping(string => Ballot) internal Ballots;
+    mapping(string => Vote[]) internal BallotVotes;
+    mapping (string => bool) internal ExistingBallots;
 
-    mapping(bytes32 => Ballot) internal Ballots;
-    mapping(bytes32 => Vote[]) internal BallotVotes;
-    mapping (bytes32 => bool) internal ExistingBallots;
+    uint64 private BallotIdentifierCounter = 0;
 
-    function EnsureThatBallotIsNew(string memory _subject) internal view
+    function EnsureThatBallotExists(string calldata ballotSubject) internal view
     {
-        bytes32 id = GetBallotId(_subject);
-        
-        require(ExistingBallots[id] == false, "Each ballot's subject is unique.");
-    }
-
-    function EnsureThatBallotExists(string memory _subject) internal view
-    {
-        bytes32 id = GetBallotId(_subject);
-        
-        require(ExistingBallots[id] == true, "The ballot requested does not exist.");
-    }
-
-    function GetBallotId(string memory _subject) internal pure returns(bytes32) 
-    {
-        return keccak256(abi.encodePacked(_subject));
+        require(ExistingBallots[ballotSubject] == true, "The ballot requested does not exist.");
     }
 
     function AddBallot(string memory _subject) external
     {
-        bytes32 id = GetBallotId(_subject);
-        
-        require(ExistingBallots[id] == false, "Each ballot's subject is unique.");
+        require(ExistingBallots[_subject] == false, "Each ballot's subject is unique.");
 
-        Ballots[id] = Ballot(
-            id,
+        Ballots[_subject] = Ballot(
             _subject,
             true,
             msg.sender,
             0x0000000000000000000000000000000000000000
         );
 
-        ExistingBallots[id] = true;
+        ExistingBallots[_subject] = true;
     }
 
     function HasUserVotedToBallot(Vote[] storage ballotVotes, address _user) private view returns (bool)
@@ -66,43 +50,37 @@ contract BallotOrganiser {
         return false;
     }
 
-    function VoteToBallot(bool vote, string memory _subject) external
+    function VoteToBallot(bool vote, string calldata ballotSubject) external
     {
-        bytes32 id = GetBallotId(_subject);
+        EnsureThatBallotExists(ballotSubject);
 
-        EnsureThatBallotExists(_subject);
+        require(Ballots[ballotSubject].IsOpen == true, "The request ballot is not open");
 
-        require(Ballots[id].IsOpen == true, "The request ballot is not open");
+        require(HasUserVotedToBallot(BallotVotes[ballotSubject], msg.sender) == false, "You can only vote once at a ballot");
 
-        require(HasUserVotedToBallot(BallotVotes[id], msg.sender) == false, "You can only vote once at a ballot");
-
-        BallotVotes[id].push(Vote(msg.sender, vote));
+        BallotVotes[ballotSubject].push(Vote(msg.sender, vote));
     }
 
-    function CloseBallot(string memory _subject) external
+    function CloseBallot(string calldata ballotSubject) external
     {
-        bytes32 id = GetBallotId(_subject);
+        EnsureThatBallotExists(ballotSubject);
 
-        EnsureThatBallotExists(_subject);
+        require(Ballots[ballotSubject].CreatedBy == msg.sender, "Only the creator of the ballot can close it.");
 
-        require(Ballots[id].CreatedBy == msg.sender, "Only the creator of the ballot can close it.");
-
-        Ballots[id].IsOpen = false;
-        Ballots[id].ClosedBy = msg.sender;
+        Ballots[ballotSubject].IsOpen = false;
+        Ballots[ballotSubject].ClosedBy = msg.sender;
     }
 
-    function GetBallotVotes(string memory _subject) external view returns (uint,bool)
+    function GetBallotVotes(string calldata ballotIdentifier) external view returns (uint,bool)
     {
-        bytes32 id = GetBallotId(_subject);
-
-        EnsureThatBallotExists(_subject);
+        EnsureThatBallotExists(ballotIdentifier);
 
         int256 falseCount = 0;
         int256 trueCount = 0;
 
-        for (uint256 i = 0; i < BallotVotes[id].length; i++)
+        for (uint256 i = 0; i < BallotVotes[ballotIdentifier].length; i++)
         {
-            if (BallotVotes[id][i].Value == true){
+            if (BallotVotes[ballotIdentifier][i].Value == true){
                 trueCount += 1;
             }
             else 
@@ -111,6 +89,6 @@ contract BallotOrganiser {
             }
         }
 
-        return (BallotVotes[id].length,trueCount>=falseCount);
+        return (BallotVotes[ballotIdentifier].length,trueCount>=falseCount);
     }
 }
