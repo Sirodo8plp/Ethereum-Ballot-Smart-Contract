@@ -12,12 +12,10 @@ contract BallotOrganiser {
         address CreatedBy;
         address ClosedBy;
     }
-    //ballot's subject => ballot
+
     mapping(string => Ballot) internal Ballots;
     mapping(string => Vote[]) internal BallotVotes;
     mapping (string => bool) internal ExistingBallots;
-
-    uint64 private BallotIdentifierCounter = 0;
 
     function EnsureThatBallotExists(string calldata ballotSubject) internal view
     {
@@ -64,6 +62,8 @@ contract BallotOrganiser {
     function CloseBallot(string calldata ballotSubject) external
     {
         EnsureThatBallotExists(ballotSubject);
+
+        require(Ballots[ballotSubject].IsOpen, "The ballot has already been closed.");
 
         require(Ballots[ballotSubject].CreatedBy == msg.sender, "Only the creator of the ballot can close it.");
 

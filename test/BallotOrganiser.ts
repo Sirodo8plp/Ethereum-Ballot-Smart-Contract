@@ -104,6 +104,19 @@ describe("Ballot Organiser", function () {
                 .revertedWith("The ballot requested does not exist.");
         });
 
+        it("Should not close a ballot that is not open.", async function () {
+            const { ballotOrganiser } = await loadFixture(deployOneYearLockFixture);
+
+            await expect(ballotOrganiser.AddBallot("test ballot")).to.not.be.reverted;
+
+            await expect(ballotOrganiser.CloseBallot("test ballot")).to.not.be.reverted;
+
+            await expect(ballotOrganiser.CloseBallot("test ballot"))
+                .to
+                .be
+                .revertedWith("The ballot has already been closed.");
+        });
+
         it("Should close a ballot only if called by the ballot's creator", async function () {
             const { ballotOrganiser, otherAccount } = await loadFixture(deployOneYearLockFixture);
 
